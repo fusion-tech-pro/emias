@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  db:
+    container_name: postgres
+    image: postgres:15.2
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB_NAME}
+    ports:
+      - "5434:5432"
+    networks:
+      - app-network
+
+  load-balancer:
+    image: nginx
+    ports:
+      - "8001:80"
+    depends_on:
+      - api
+    volumes:
+      - ./resources/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - app-network
+
+  api:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+#    uncomment for docker compose v3+
+#    replicas: 3
+    depends_on:
+      - db
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8001/health/ping || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    env_file:
+      - .env
+    ports:
+      - 8080:8080
+    restart: always
+    networks:
+      - app-network
+
+networks:
+  app-network:
